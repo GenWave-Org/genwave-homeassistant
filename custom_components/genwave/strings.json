@@ -1,0 +1,55 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to GenWave",
+        "description": "Enter your GenWave station's URL and an announce token, generated once from the station's Announcements page (reveal-once).",
+        "data": {
+          "url": "GenWave URL",
+          "api_token": "Announce token"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate GenWave",
+        "description": "The announce token for this GenWave station was refused. Generate a fresh one from the station's Announcements page and enter it here.",
+        "data": {
+          "api_token": "Announce token"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach that GenWave URL. Check the address and that the station is running.",
+      "invalid_auth": "The announce token was refused. Check the token, or generate a fresh one on the station's Announcements page.",
+      "invalid_url": "That doesn't look like a URL. Include the scheme, e.g. https://station.example.com.",
+      "unknown": "Unexpected error connecting to GenWave."
+    },
+    "abort": {
+      "already_configured": "This GenWave station is already configured.",
+      "reauth_successful": "Reauthentication was successful."
+    }
+  },
+  "services": {
+    "announce": {
+      "name": "Announce",
+      "description": "Speak a message through your GenWave station's DJ, on air in the next break.",
+      "fields": {
+        "message": {
+          "name": "Message",
+          "description": "The text to speak. Up to 280 characters (the station's own hard limit)."
+        },
+        "verbatim": {
+          "name": "Verbatim",
+          "description": "Speak the message exactly as written. When off, the on-air persona works it into copy in character, always preserving the message's own words."
+        },
+        "ttl_seconds": {
+          "name": "Time to live",
+          "description": "How long the message stays eligible to air before it expires unspoken, in seconds (60-3600). Defaults to 900 (15 minutes) when omitted."
+        },
+        "voice": {
+          "name": "Voice",
+          "description": "A specific station voice to speak this message, if the station has more than one. Defaults to the station's own voice when omitted."
+        }
+      }
+    }
+  }
+}
