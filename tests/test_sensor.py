@@ -3,18 +3,30 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from typing import Any
 
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.const import CONF_API_TOKEN, CONF_URL, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import async_fire_time_changed
-from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
+from pytest_homeassistant_custom_component.test_util.aiohttp import (
+    AiohttpClientMocker,
+    AiohttpClientMockResponse,
+)
+from yarl import URL
 
 from custom_components.genwave.const import DOMAIN, NOW_PLAYING_POLL_INTERVAL_SECONDS
 
-from . import NOW_PLAYING_URL, ON_AIR_NOW_PLAYING_JSON, STANDBY_NOW_PLAYING_JSON, async_setup_loaded_entry
+from . import (
+    BASE_URL,
+    NOW_PLAYING_URL,
+    ON_AIR_NOW_PLAYING_JSON,
+    STANDBY_NOW_PLAYING_JSON,
+    TOKEN,
+    async_setup_loaded_entry,
+)
 
 SENSOR_ENTITY_ID = "sensor.now_playing"
 
@@ -127,3 +139,42 @@ async def test_a_poll_time_problem_marks_the_sensor_unavailable_without_reauth_o
         DOMAIN, match_context={"source": SOURCE_REAUTH, "entry_id": entry.entry_id}
     )
     assert not flows
+
+
+async def test_a_failed_first_coordinator_refresh_leaves_the_sensor_present_but_unavailable(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """L1: `async_setup_entry`'s own validation read and the coordinator's own first refresh
+    (`sensor.py`'s `async_setup_entry`, T347) are two separate calls to the same now-playing
+    endpoint. The first succeeding (so the entry loads) never guarantees the second does too - if
+    it fails, the entity must still exist, `unavailable` rather than absent entirely, the standard
+    `CoordinatorEntity` contract `async_refresh()` (never `async_config_entry_first_refresh()`)
+    gives it.
+
+    RED PROOF: swapping `sensor.py`'s `async_refresh()` for `async_config_entry_first_refresh()`
+    reds this - HA's forwarded-platform setup drops a platform that raises, and the entity never
+    registers at all instead of coming up unavailable.
+    """
+    call_count = 0
+
+    async def _first_call_succeeds_second_fails(
+        method: str, url: URL, data: Any
+    ) -> AiohttpClientMockResponse:
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return AiohttpClientMockResponse(method="get", url=url, json=STANDBY_NOW_PLAYING_JSON)
+        return AiohttpClientMockResponse(method="get", url=url, status=503, json={"detail": "Bad gateway"})
+
+    aioclient_mock.get(NOW_PLAYING_URL, side_effect=_first_call_succeeds_second_fails)
+
+    entry = MockConfigEntry(domain=DOMAIN, data={CONF_URL: BASE_URL, CONF_API_TOKEN: TOKEN})
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    state = hass.states.get(SENSOR_ENTITY_ID)
+    assert state is not None
+    assert state.state == STATE_UNAVAILABLE

@@ -125,12 +125,18 @@ async def async_announce_or_raise(
     except GenWaveInvalidAuth as err:
         entry.async_start_reauth(hass)
         raise HomeAssistantError(
-            "the GenWave announce token was refused — reauthenticate the integration"
+            translation_domain=DOMAIN, translation_key="announce_token_refused"
         ) from err
     except GenWaveApiProblem as err:
+        # The server's own ProblemDetails `detail` passes through verbatim — server-owned copy,
+        # never re-worded and never routed through this integration's own translation catalog.
         raise HomeAssistantError(err.detail) from err
     except GenWaveCannotConnect as err:
-        raise HomeAssistantError(f"could not reach GenWave: {err}") from err
+        raise HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="cannot_reach_station",
+            translation_placeholders={"error": str(err)},
+        ) from err
 
 
 def _async_register_announce_service(hass: HomeAssistant) -> None:
@@ -165,9 +171,9 @@ def _resolve_single_entry(hass: HomeAssistant) -> GenWaveConfigEntry:
     """
     entries: list[GenWaveConfigEntry] = hass.config_entries.async_loaded_entries(DOMAIN)
     if not entries:
-        raise HomeAssistantError("no GenWave integration is configured")
+        raise HomeAssistantError(translation_domain=DOMAIN, translation_key="no_entry_configured")
     if len(entries) > 1:
         raise HomeAssistantError(
-            "more than one GenWave station is configured — genwave.announce cannot pick one"
+            translation_domain=DOMAIN, translation_key="multiple_entries_configured"
         )
     return entries[0]

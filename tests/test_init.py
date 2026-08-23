@@ -9,13 +9,21 @@ import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_API_TOKEN, CONF_URL
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_fire_time_changed
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
+from custom_components.genwave import _resolve_single_entry
 from custom_components.genwave.const import DOMAIN
 
-from . import BASE_URL, NOW_PLAYING_URL, STANDBY_NOW_PLAYING_JSON, TOKEN
+from . import (
+    BASE_URL,
+    NOW_PLAYING_URL,
+    STANDBY_NOW_PLAYING_JSON,
+    TOKEN,
+    async_setup_loaded_entry,
+)
 
 
 @pytest.fixture
@@ -101,3 +109,57 @@ async def test_cannot_connect_at_setup_redacts_credentials_from_the_retry_reason
     assert "a-secret-user" not in entry.reason
     assert "a-secret-pass" not in entry.reason
     assert "genwave.example.com" in entry.reason
+
+
+async def test_resolve_single_entry_raises_the_translated_message_when_none_are_loaded(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """`_resolve_single_entry`'s own translated message resolves when no GenWave entry is loaded -
+    the message a stray `genwave.announce` call would surface if it somehow outlived its last
+    entry (F5, `test_services.py`'s own service-removal test).
+
+    Loads and then removes one entry first, rather than calling `_resolve_single_entry` against a
+    `hass` that never loaded `genwave` at all: translations are cached once, on first component
+    setup, and never unloaded (`_TranslationCache`'s own contract) - this mirrors the real path,
+    where the resolver is only ever reachable through a service that itself only exists once
+    `genwave` has loaded at least once.
+    """
+    entry = await async_setup_loaded_entry(hass, aioclient_mock)
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+
+    with pytest.raises(HomeAssistantError, match="No GenWave integration is configured") as excinfo:
+        _resolve_single_entry(hass)
+
+    assert excinfo.value.translation_key == "no_entry_configured"
+
+
+async def test_resolve_single_entry_raises_the_translated_message_when_more_than_one_is_loaded(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Defense-in-depth (this function's own docstring): two GenWave entries loaded some other way
+    than the single-instance config flow makes `_resolve_single_entry` refuse to guess rather than
+    silently picking one.
+
+    The second entry is created and set up only *after* the first has finished loading - setting
+    up the first while it's the only known entry is what triggers `genwave`'s own one-time
+    component bootstrap (which loads every not-yet-loaded entry of the domain in one batch); doing
+    both up front would load them together before this test ever gets to call the resolver.
+    """
+    first = await async_setup_loaded_entry(hass, aioclient_mock)
+
+    aioclient_mock.get(
+        "http://second.example.com/api/announcements/now-playing", json=STANDBY_NOW_PLAYING_JSON
+    )
+    second = MockConfigEntry(
+        domain=DOMAIN, data={CONF_URL: "http://second.example.com", CONF_API_TOKEN: TOKEN}
+    )
+    second.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(second.entry_id)
+    await hass.async_block_till_done()
+
+    with pytest.raises(HomeAssistantError, match="More than one GenWave station") as excinfo:
+        _resolve_single_entry(hass)
+
+    assert excinfo.value.translation_key == "multiple_entries_configured"
+    assert first.state is ConfigEntryState.LOADED

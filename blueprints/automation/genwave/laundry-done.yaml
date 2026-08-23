@@ -1,0 +1,80 @@
+blueprint:
+  name: GenWave - Laundry done
+  description: >
+    Announce "The laundry is done." through your GenWave station's DJ, once the washer or dryer's
+    power reading drops and stays down. Airs in the next DJ break - minutes, not seconds; this is
+    deliberately not a doorbell-class notification channel.
+  domain: automation
+  source_url: https://raw.githubusercontent.com/GenWave-Org/genwave-homeassistant/main/blueprints/automation/genwave/laundry-done.yaml
+  input:
+    power_sensor:
+      name: Power sensor
+      description: >
+        The washer or dryer's power-usage sensor - a smart plug's wattage reading, typically.
+      selector:
+        entity:
+          domain: sensor
+          device_class: power
+    power_threshold:
+      name: Idle power threshold
+      description: >
+        A reading below this, sustained for the settle time below, means the cycle has ended.
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 500
+          unit_of_measurement: W
+          mode: box
+    settle_minutes:
+      name: Settle time
+      description: >
+        Minutes the power must stay below the threshold before announcing - long enough to ride
+        out a normal pause between wash and rinse without a false "done".
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 30
+          unit_of_measurement: min
+          mode: box
+    message:
+      name: Message
+      description: What the DJ announces. Can be a template.
+      default: The laundry is done.
+      selector:
+        text:
+    verbatim:
+      name: Speak verbatim
+      description: >
+        Off (default) lets the on-air persona work this into copy in character, always preserving
+        the message's own words. On speaks it exactly as written.
+      default: false
+      selector:
+        boolean:
+    ttl_seconds:
+      name: Time to live
+      description: >
+        How long the announcement stays eligible to air before expiring unspoken, in seconds.
+        900 (15 minutes) matches the station's own default.
+      default: 900
+      selector:
+        number:
+          min: 60
+          max: 3600
+          unit_of_measurement: seconds
+          mode: box
+
+trigger:
+  - trigger: numeric_state
+    entity_id: !input power_sensor
+    below: !input power_threshold
+    for:
+      minutes: !input settle_minutes
+
+action:
+  - action: genwave.announce
+    data:
+      message: !input message
+      verbatim: !input verbatim
+      ttl_seconds: !input ttl_seconds

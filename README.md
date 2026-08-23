@@ -4,8 +4,7 @@ Your smart home speaks through your radio station. Home Assistant integration fo
 ## Status
 
 The `genwave.announce` service, the `notify` platform, the config flow (config entry setup +
-validation), and the now-playing `sensor` are here. The starter blueprints ship in a later task
-of the same epic.
+validation), the now-playing `sensor`, and a starter set of `blueprints/` are here.
 
 ## Requirements
 
@@ -99,9 +98,30 @@ quiet (standby, a jingle, or a track with no metadata); `artist` and `dj_name` r
 attributes.
 
 Polls every 30 seconds, the fastest this integration polls at - 2 of the station's 60
-requests-per-minute-per-IP accept-rate budget, leaving the rest for setup-time reads and service
-calls. Goes `unavailable` on a failed poll rather than holding a stale reading; a poll that finds
-the token dead raises the same reauthentication prompt described above.
+requests-per-minute-per-IP door budget, leaving the rest for setup-time reads and service calls.
+Goes `unavailable` on a failed poll rather than holding a stale reading; a poll that finds the
+token dead raises the same reauthentication prompt described above.
+
+## Blueprints
+
+A starter set of importable `automation` blueprints lives in `blueprints/automation/genwave/`,
+each one a fill-in-your-entities recipe that calls `genwave.announce` - no YAML to write. Click
+an import button, pick the entity the recipe asks for, and the automation is ready.
+
+| Blueprint | What it announces | Import |
+|---|---|---|
+| Laundry done | "The laundry is done." when a power sensor drops and stays down | [![Open your Home Assistant instance and show the blueprint import dialog with the laundry-done blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FGenWave-Org%2Fgenwave-homeassistant%2Fmain%2Fblueprints%2Fautomation%2Fgenwave%2Flaundry-done.yaml) |
+| Dinner bell | "Dinner is ready." when a button or scene fires | [![Open your Home Assistant instance and show the blueprint import dialog with the dinner-bell blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FGenWave-Org%2Fgenwave-homeassistant%2Fmain%2Fblueprints%2Fautomation%2Fgenwave%2Fdinner-bell.yaml) |
+| Morning ramp | A good-morning greeting at a time you choose | [![Open your Home Assistant instance and show the blueprint import dialog with the morning-ramp blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2FGenWave-Org%2Fgenwave-homeassistant%2Fmain%2Fblueprints%2Fautomation%2Fgenwave%2Fmorning-ramp.yaml) |
+
+No button? Settings -> Automations -> Blueprints -> Import Blueprint, and paste the raw file's
+URL (e.g. `https://raw.githubusercontent.com/GenWave-Org/genwave-homeassistant/main/blueprints/automation/genwave/dinner-bell.yaml`)
+by hand.
+
+Every blueprint ships with a sensible default message and a `verbatim` toggle (off by default -
+the on-air persona flavors it in character) and a `ttl_seconds` input bounded 60-3600, mirroring
+`genwave.announce`'s own fields one for one. See [Latency, honestly](#latency-honestly) below for
+this set's delivery-time promise.
 
 ## Running the tests
 

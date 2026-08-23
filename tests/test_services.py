@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import aiohttp
 import pytest
 import voluptuous as vol
 import yaml
@@ -97,18 +98,40 @@ async def test_out_of_range_ttl_is_rejected_before_any_call(
 async def test_a_dead_token_raises_and_starts_reauth(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """AC4: a dead token surfaces as a reauth prompt AND a loud call failure — never a silent one."""
+    """AC4: a dead token surfaces as a reauth prompt AND a loud call failure — never a silent one.
+
+    The message ("The announce token was refused...", capital-opener) is resolved through this
+    integration's own `exceptions` translation catalog (`translation_domain`/`translation_key`),
+    not a hardcoded string on the raise site - pinning that the wiring actually resolves, not just
+    that *some* `HomeAssistantError` came out.
+    """
     entry = await async_setup_loaded_entry(hass, aioclient_mock)
     aioclient_mock.post(ANNOUNCEMENTS_URL, status=401)
 
-    with pytest.raises(HomeAssistantError):
+    with pytest.raises(HomeAssistantError, match="The announce token was refused") as excinfo:
         await hass.services.async_call(DOMAIN, SERVICE_ANNOUNCE, {ATTR_MESSAGE: "x"}, blocking=True)
+
+    assert excinfo.value.translation_key == "announce_token_refused"
 
     await hass.async_block_till_done()
     flows = hass.config_entries.flow.async_progress_by_handler(
         DOMAIN, match_context={"source": SOURCE_REAUTH, "entry_id": entry.entry_id}
     )
     assert flows
+
+
+async def test_a_connection_failure_at_announce_time_raises_the_translated_message(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The `GenWaveCannotConnect` branch also resolves through the translation catalog, with the
+    underlying error folded in as a placeholder rather than baked into a hardcoded string."""
+    await async_setup_loaded_entry(hass, aioclient_mock)
+    aioclient_mock.post(ANNOUNCEMENTS_URL, exc=aiohttp.ClientConnectionError("refused"))
+
+    with pytest.raises(HomeAssistantError, match="Could not reach GenWave") as excinfo:
+        await hass.services.async_call(DOMAIN, SERVICE_ANNOUNCE, {ATTR_MESSAGE: "x"}, blocking=True)
+
+    assert excinfo.value.translation_key == "cannot_reach_station"
 
 
 async def test_server_problem_detail_surfaces_verbatim(

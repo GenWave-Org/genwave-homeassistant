@@ -20,12 +20,13 @@
     "error": {
       "cannot_connect": "Could not reach that GenWave URL. Check the address and that the station is running.",
       "invalid_auth": "The announce token was refused. Check the token, or generate a fresh one on the station's Announcements page.",
-      "invalid_url": "That doesn't look like a URL. Include the scheme, e.g. https://station.example.com.",
+      "invalid_url": "That doesn't look like a URL. Include the scheme (https or http) and the host.",
       "unknown": "Unexpected error connecting to GenWave."
     },
     "abort": {
       "already_configured": "This GenWave station is already configured.",
-      "reauth_successful": "Reauthentication was successful."
+      "reauth_successful": "Reauthentication was successful.",
+      "single_instance_allowed": "Already configured. Only a single configuration possible."
     }
   },
   "entity": {
@@ -33,6 +34,20 @@
       "now_playing": {
         "name": "Now playing"
       }
+    }
+  },
+  "exceptions": {
+    "announce_token_refused": {
+      "message": "The announce token was refused — reauthenticate the integration."
+    },
+    "cannot_reach_station": {
+      "message": "Could not reach GenWave: {error}"
+    },
+    "no_entry_configured": {
+      "message": "No GenWave integration is configured."
+    },
+    "multiple_entries_configured": {
+      "message": "More than one GenWave station is configured — genwave.announce cannot pick one."
     }
   },
   "services": {

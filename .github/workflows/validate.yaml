@@ -23,6 +23,10 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # Pre-submission posture: the brands check requires a home-assistant/brands
+          # entry (the GenWave icon/logo PR) — a T349-era prerequisite, not a repo
+          # defect. Remove this ignore when that PR merges.
+          ignore: brands
 
   test:
     name: Test

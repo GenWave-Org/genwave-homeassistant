@@ -30,9 +30,11 @@ MAX_TTL_SECONDS: Final = 3600
 API_TIMEOUT_SECONDS: Final = 10
 
 # The now-playing sensor's poll interval (STORY-362 AC3, SPEC F147.3, gh-#558's volume lesson).
-# 30s is the floor, not a tunable default: the server's own accept-rate door budget is 60
-# requests/min per IP (the same door `genwave.announce` and the config flow's validation read
-# share). A 30s interval spends 2 of those 60 requests/min on polling alone, leaving 58/min of
-# headroom for setup-time reads, service calls, and manual reloads from the same IP — comfortably
-# inside the budget even on a busy automation day.
+# 30s is the floor, not a tunable default: the server's own per-IP "announcements-door" limiter
+# (RateLimiterPolicies.Announcements) admits 60 requests/min per IP — the same door
+# `genwave.announce` and the config flow's validation read share. That's a distinct concept from
+# AnnouncementAcceptedRateLimiter's separate, station-wide 6/min *accepted* cap (SPEC F143.4),
+# which this GET-only poll never touches at all. A 30s interval spends 2 of those 60 requests/min
+# on the door alone, leaving 58/min of headroom for setup-time reads, service calls, and manual
+# reloads from the same IP — comfortably inside the door's budget even on a busy automation day.
 NOW_PLAYING_POLL_INTERVAL_SECONDS: Final = 30
