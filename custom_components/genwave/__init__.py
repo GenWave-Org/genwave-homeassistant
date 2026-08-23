@@ -1,8 +1,9 @@
-"""The GenWave integration (SPEC F147.1/.2, STORY-362 AC1/AC2/AC4).
+"""The GenWave integration (SPEC F147.1/.2/.3, STORY-362 AC1/AC2/AC3/AC4).
 
-Sets up the config entry's shared `GenWaveApiClient`, forwards to the `notify` platform, and
-registers the `genwave.announce` service (AC2: message/verbatim/ttl_seconds/voice map 1:1 onto
-`POST /api/announcements` — this module adds no semantics of its own beyond the wire mapping).
+Sets up the config entry's shared `GenWaveApiClient`, forwards to the `notify` and `sensor`
+platforms, and registers the `genwave.announce` service (AC2: message/verbatim/ttl_seconds/voice
+map 1:1 onto `POST /api/announcements` — this module adds no semantics of its own beyond the wire
+mapping).
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ from .const import (
     SERVICE_ANNOUNCE,
 )
 
-PLATFORMS: list[Platform] = [Platform.NOTIFY]
+PLATFORMS: list[Platform] = [Platform.NOTIFY, Platform.SENSOR]
 
 type GenWaveConfigEntry = ConfigEntry[GenWaveApiClient]
 

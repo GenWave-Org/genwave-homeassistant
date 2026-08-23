@@ -28,6 +28,13 @@
       "reauth_successful": "Reauthentication was successful."
     }
   },
+  "entity": {
+    "sensor": {
+      "now_playing": {
+        "name": "Now playing"
+      }
+    }
+  },
   "services": {
     "announce": {
       "name": "Announce",

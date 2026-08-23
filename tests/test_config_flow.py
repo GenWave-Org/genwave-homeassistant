@@ -34,8 +34,11 @@ async def test_user_flow_validates_live_then_creates_entry(
     assert result["data"] == {CONF_URL: BASE_URL, CONF_API_TOKEN: TOKEN}
     # One live read in the flow itself (this AC's own contract) + one more when
     # `async_setup_entry` re-validates before the entry comes up (this integration's own
-    # ConfigEntryNotReady/ConfigEntryAuthFailed contract) — both against the same now-playing read.
-    assert len(aioclient_mock.mock_calls) == 2
+    # ConfigEntryNotReady/ConfigEntryAuthFailed contract) + one more when the `sensor` platform's
+    # coordinator does its own first refresh (T347's poll path) — all three against the same
+    # now-playing read, well inside the 60/min door budget `NOW_PLAYING_POLL_INTERVAL_SECONDS`'s
+    # own comment accounts for.
+    assert len(aioclient_mock.mock_calls) == 3
     assert all(str(url) == NOW_PLAYING_URL for _, url, _, _ in aioclient_mock.mock_calls)
 
 

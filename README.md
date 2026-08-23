@@ -3,9 +3,9 @@ Your smart home speaks through your radio station. Home Assistant integration fo
 
 ## Status
 
-The `genwave.announce` service, the `notify` platform, and the config flow are here (config
-entry setup + validation). The now-playing sensor and the starter blueprints ship in later
-tasks of the same epic.
+The `genwave.announce` service, the `notify` platform, the config flow (config entry setup +
+validation), and the now-playing `sensor` are here. The starter blueprints ship in a later task
+of the same epic.
 
 ## Requirements
 
@@ -45,14 +45,15 @@ Settings -> Devices & Services -> Add Integration -> **GenWave**.
 - **Announce token** - generated on the station's Announcements page (session-authed; the token
   itself never mints or reads its own status - only an admin session can do that).
 
-The config flow validates both fields live, via the same now-playing read the sensor will later
-poll, **before** the entry is created. A bad URL or a bad/revoked token comes back as a form
-error on this step, not a broken entry to debug afterward.
+The config flow validates both fields live, via the same now-playing read the `sensor` polls,
+**before** the entry is created. A bad URL or a bad/revoked token comes back as a form error on
+this step, not a broken entry to debug afterward.
 
 If GenWave later revokes or regenerates the token out from under this integration, the entry
 raises a **reauthentication** prompt the next time a poll or a service call hits a 401 - never a
-silent failure. Generate a fresh token on the station's Announcements page and paste it into the
-reauth form.
+silent failure (the sensor's own poll is one of the three places this can be discovered, alongside
+setup and `genwave.announce`). Generate a fresh token on the station's Announcements page and
+paste it into the reauth form.
 
 ### Transport note
 
@@ -89,6 +90,18 @@ A `notify.send_message` target is set up alongside the config entry, for automat
 built around `notify.*`. It speaks flavored (`verbatim: false`) through the same client the
 `announce` service uses - there is no second write path. `title`, when given, is folded into the
 message text (GenWave's wire contract has no separate title field).
+
+## The now-playing sensor
+
+A single `sensor.now_playing` entity, backed by the same now-playing read the config flow
+validates with - no second read path. State is the track title, or `idle` while the station is
+quiet (standby, a jingle, or a track with no metadata); `artist` and `dj_name` ride along as
+attributes.
+
+Polls every 30 seconds, the fastest this integration polls at - 2 of the station's 60
+requests-per-minute-per-IP accept-rate budget, leaving the rest for setup-time reads and service
+calls. Goes `unavailable` on a failed poll rather than holding a stale reading; a poll that finds
+the token dead raises the same reauthentication prompt described above.
 
 ## Running the tests
 

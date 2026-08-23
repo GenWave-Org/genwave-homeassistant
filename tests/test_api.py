@@ -7,7 +7,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.genwave.api import GenWaveApiClient, GenWaveApiProblem, NowPlaying
+from custom_components.genwave.api import (
+    NOW_PLAYING_PATH,
+    GenWaveApiClient,
+    GenWaveApiProblem,
+    GenWaveCannotConnect,
+    NowPlaying,
+)
 
 from . import ANNOUNCEMENTS_URL, BASE_URL, NOW_PLAYING_URL, ON_AIR_NOW_PLAYING_JSON, TOKEN
 
@@ -43,3 +49,23 @@ async def test_problem_detail_falls_back_when_the_body_is_not_json(
 
     assert excinfo.value.status == 502
     assert excinfo.value.detail
+
+
+async def test_timeout_wording_redacts_credentials_from_the_base_url(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Pin the `GenWaveCannotConnect` timeout message: a credentialed base URL is redacted before
+    it's echoed back, exactly like every other place this client repeats a caller-supplied URL
+    (`redact_url`'s own header rule). RED PROOF: swap `redact_url(self._base_url)` for the raw
+    `self._base_url` in `_async_request`'s `except TimeoutError` branch and this test reds.
+    """
+    credentialed_url = "http://a-secret-user:a-secret-pass@genwave.example.com"
+    aioclient_mock.get(f"{credentialed_url}{NOW_PLAYING_PATH}", exc=TimeoutError())
+    client = GenWaveApiClient(async_get_clientsession(hass), credentialed_url, TOKEN)
+
+    with pytest.raises(GenWaveCannotConnect) as excinfo:
+        await client.async_get_now_playing()
+
+    assert "a-secret-user" not in str(excinfo.value)
+    assert "a-secret-pass" not in str(excinfo.value)
+    assert "genwave.example.com" in str(excinfo.value)
