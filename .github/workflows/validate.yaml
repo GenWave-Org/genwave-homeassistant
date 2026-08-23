@@ -1,0 +1,45 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+
+jobs:
+  hassfest:
+    name: Hassfest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  hacs:
+    name: HACS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # Pre-submission posture: the brands check requires a home-assistant/brands
+          # entry (the GenWave icon/logo PR) — a T349-era prerequisite, not a repo
+          # defect. Remove this ignore when that PR merges.
+          ignore: brands
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r requirements_test.txt
+      - run: ruff check custom_components/ tests/
+      - run: pytest tests/
+    # No version-matrix leg against hacs.json's 2025.3.0 floor: requirements_test.txt's
+    # pytest-homeassistant-custom-component pin is itself version-locked to a specific
+    # homeassistant release (0.13.316 <-> 2026.2.3), so testing the floor needs its own
+    # verified-compatible pin, not just swapping one version string — deferred, not "cheap".

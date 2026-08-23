@@ -1,0 +1,54 @@
+blueprint:
+  name: GenWave - Morning ramp
+  description: >
+    Wake the house with a good-morning announcement through your GenWave station's DJ, at a time
+    you choose. Airs in the next DJ break after that time - minutes, not seconds; this is
+    deliberately not a doorbell-class notification channel.
+  domain: automation
+  source_url: https://raw.githubusercontent.com/GenWave-Org/genwave-homeassistant/main/blueprints/automation/genwave/morning-ramp.yaml
+  input:
+    wake_time:
+      name: Wake time
+      description: What time to fire the good-morning announcement.
+      default: "07:00:00"
+      selector:
+        time:
+    message:
+      name: Message
+      description: >
+        What the DJ announces. Can be a template. Left flavored (verbatim off) by default - the
+        good-morning greeting is the DJ's own moment.
+      default: Good morning!
+      selector:
+        text:
+    verbatim:
+      name: Speak verbatim
+      description: >
+        Off (default) lets the on-air persona work this into copy in character, always preserving
+        the message's own words. On speaks it exactly as written.
+      default: false
+      selector:
+        boolean:
+    ttl_seconds:
+      name: Time to live
+      description: >
+        How long the announcement stays eligible to air before expiring unspoken, in seconds.
+        900 (15 minutes) matches the station's own default.
+      default: 900
+      selector:
+        number:
+          min: 60
+          max: 3600
+          unit_of_measurement: seconds
+          mode: box
+
+trigger:
+  - trigger: time
+    at: !input wake_time
+
+action:
+  - action: genwave.announce
+    data:
+      message: !input message
+      verbatim: !input verbatim
+      ttl_seconds: !input ttl_seconds

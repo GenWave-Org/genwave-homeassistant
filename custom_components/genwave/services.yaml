@@ -1,0 +1,30 @@
+# genwave.announce maps 1:1 onto POST /api/announcements (SPEC F143.1/F147.3) — field docs mirror
+# AnnouncementRequest's own remarks in the GenWave app repo; no field here means anything the
+# server's own contract doesn't already mean.
+announce:
+  fields:
+    message:
+      required: true
+      example: "Dinner's ready"
+      selector:
+        text:
+    verbatim:
+      required: false
+      default: false
+      example: false
+      selector:
+        boolean:
+    ttl_seconds:
+      required: false
+      example: 900
+      selector:
+        number:
+          min: 60
+          max: 3600
+          unit_of_measurement: seconds
+          mode: box
+    voice:
+      required: false
+      example: "af_heart"
+      selector:
+        text:
