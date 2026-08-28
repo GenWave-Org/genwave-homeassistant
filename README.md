@@ -11,13 +11,20 @@ validation), the now-playing `sensor`, and a starter set of `blueprints/` are he
 - Home Assistant **2025.3.0** or newer. Older cores are missing APIs this integration is built
   on (`AddConfigEntryEntitiesCallback`, `ConfigFlow._get_reauth_entry`) — `hacs.json` states the
   same floor, so HACS won't offer an install on an older core.
-- A running GenWave station with **`Admin:Enabled` set to `true`**. GenWave's `[AdminSurface]`
-  posture 404s the *entire* announcements family — including the endpoint this integration
-  calls — when the admin control plane is disabled. If `Admin:Enabled` is `false` on the box,
-  this integration has nothing to talk to; there is no separate "public" door for it.
+- A running GenWave station — **v5.4.1 or later** lets the now-playing sensor's token-authed read
+  work with the station's admin plane turned **off** (an appliance's normal posture). GenWave's
+  `[AdminSurface]` posture still 404s `genwave.announce` and the token endpoints when
+  `Admin:Enabled` is `false` — announcing, and minting or rotating the token, always need
+  `Admin:Enabled` set to `true`. On a station older than v5.4.1, the sensor's read needs the plane
+  on too; there is no separate "public" door for it before that release.
 - An announce token, generated from the GenWave station's own Announcements page. The token is
   shown **once** at generation time (GenWave never stores or re-displays the plaintext) — copy it
-  immediately into this integration's config flow.
+  immediately into this integration's config flow. On an appliance that normally runs with the
+  admin plane off, mint the token during the station's temporary-admin window (GenWave's
+  DEPLOYMENT.md "Appliance checklist & temporary admin access"), then turn admin back off; the
+  sensor keeps polling, but until admin is turned back on, `genwave.announce` calls fail with
+  "Not Found" in the automation trace (the station answers a bare 404, not an auth failure, so no
+  reauth prompt fires).
 - Network reachability from Home Assistant to the GenWave station's URL.
 
 ## Installation
@@ -61,6 +68,10 @@ makes. Point it at an `https://` URL, or keep the connection on a trusted LAN / 
 already control - GenWave does not add its own transport encryption, and neither does this
 integration.
 
+Point the GenWave URL at the station's **api port** (e.g. `http://192.0.2.10:8080`), never its
+public/spectator listener port - the reads and writes this integration makes are not spectator
+routes, and the public port 404s them.
+
 ## The `genwave.announce` service
 
 Maps 1:1 onto GenWave's `POST /api/announcements` — this integration adds no semantics of its
@@ -96,6 +107,12 @@ A single `sensor.now_playing` entity, backed by the same now-playing read the co
 validates with - no second read path. State is the track title, or `idle` while the station is
 quiet (standby, a jingle, or a track with no metadata); `artist` and `dj_name` ride along as
 attributes.
+
+Works with the station's admin plane turned off, since station v5.4.1 - the read is token-authed
+and answers regardless of `Admin:Enabled`. It still isn't a spectator route: point the GenWave URL
+at the station's api port. Pointed at the public/spectator port instead, the entry never finishes
+setup - the config flow refuses to create it ("Unexpected error connecting to GenWave."), and an existing entry shows
+"Retrying setup" in Home Assistant; no sensor entity exists to go looking for.
 
 Polls every 30 seconds, the fastest this integration polls at - 2 of the station's 60
 requests-per-minute-per-IP door budget, leaving the rest for setup-time reads and service calls.
